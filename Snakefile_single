@@ -1,0 +1,35 @@
+
+
+SAMPLE     = 'col0_injurytime55h'
+SRRIDs     = [x.strip() for x in open('data/%s'%SAMPLE).readlines()]
+SRATK      = "/programs/sratoolkit.2.7.0-ubuntu64/bin/"
+OUTDIR     = SAMPLE
+INDEX      = "/ref/analysis/References/Athaliana/Araport11_genes.201606.cdna" # kallisto index
+KALLPATH   = "/programs/kallisto_linux-v0.43.0/"
+
+rule end:
+     input : "{out}/abundance.tsv".format(out=OUTDIR)
+
+rule NCBIdownload:
+     params : "{SRRID}",SRRID=SRRIDs
+     output : "{SRRID}.sra"
+     shell  : "python2.7 ncbi_download.py {params}"
+
+rule fastqdump:
+     input  : "{SRRID}.sra"
+     output : "data/{SRRID}.fastq.gz" # single-end
+     params : cmd=SRATK
+     shell  : '''{params.cmd}fastq-dump  --origfmt -I  --gzip {input}
+                 mv {wildcards.SRRID}.fastq.gz data/
+                 rm {input}'''
+
+rule kallidos:
+     input  :
+              fastq=expand("data/{SRRID}.fastq.gz",SRRID=SRRIDs)
+     params : ix=INDEX, cmd=KALLPATH, outdir=OUTDIR
+     output : "{out}/abundance.tsv".format(out=OUTDIR)
+     shell  : '''{params.cmd}kallisto quant --single -l 200 -s 20 -i {params.ix} -o {params.outdir} {input.fastq}
+                 rm {input.fastq}
+              '''     
+
+
